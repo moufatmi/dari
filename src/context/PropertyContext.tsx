@@ -1,15 +1,19 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { Property, FilterOptions } from '../types/Property';
-import { mockProperties } from '../data/mockProperties';
+import { propertyService } from '../services/mockService';
 
 interface PropertyContextType {
   properties: Property[];
   filteredProperties: Property[];
   filters: FilterOptions;
+  loading: boolean;
+  error: string | null;
   updateFilters: (newFilters: Partial<FilterOptions>) => void;
-  addProperty: (property: Omit<Property, 'id' | 'createdAt' | 'status'>) => void;
-  updatePropertyStatus: (id: string, status: Property['status']) => void;
+  addProperty: (property: Omit<Property, 'id' | 'createdAt' | 'status'>) => Promise<void>;
+  updatePropertyStatus: (id: string, status: Property['status']) => Promise<void>;
   getProperty: (id: string) => Property | undefined;
+  refreshProperties: () => Promise<void>;
+  uploadImage: (file: File) => Promise<string>;
 }
 
 const PropertyContext = createContext<PropertyContextType | undefined>(undefined);
@@ -21,12 +25,33 @@ const defaultFilters: FilterOptions = {
   type: 'all',
   propertyType: '',
   minRooms: 0,
-  minSurface: 0
+  minSurface: 0,
+  amenities: []
 };
 
 export function PropertyProvider({ children }: { children: ReactNode }) {
-  const [properties, setProperties] = useState<Property[]>(mockProperties);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchProperties = async () => {
+    try {
+      setLoading(true);
+      const data = await propertyService.getAllProperties();
+      setProperties(data);
+      setError(null);
+    } catch (err) {
+      setError('Failed to load properties');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProperties();
+  }, []);
 
   const filteredProperties = properties.filter(property => {
     if (property.status !== 'approved') return false;
@@ -36,6 +61,14 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     if (filters.propertyType && property.propertyType !== filters.propertyType) return false;
     if (property.rooms < filters.minRooms) return false;
     if (property.surface < filters.minSurface) return false;
+
+    if (filters.amenities.length > 0) {
+      const hasAllAmenities = filters.amenities.every(amenity =>
+        property.features && property.features.includes(amenity)
+      );
+      if (!hasAllAmenities) return false;
+    }
+
     return true;
   });
 
@@ -43,24 +76,37 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
     setFilters(prev => ({ ...prev, ...newFilters }));
   };
 
-  const addProperty = (propertyData: Omit<Property, 'id' | 'createdAt' | 'status'>) => {
-    const newProperty: Property = {
-      ...propertyData,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString().split('T')[0],
-      status: 'pending'
-    };
-    setProperties(prev => [...prev, newProperty]);
+  const addProperty = async (propertyData: Omit<Property, 'id' | 'createdAt' | 'status'>) => {
+    try {
+      setLoading(true);
+      const newProperty = await propertyService.addProperty(propertyData);
+      setProperties(prev => [...prev, newProperty]);
+    } catch (err) {
+      setError('Failed to add property');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const updatePropertyStatus = (id: string, status: Property['status']) => {
-    setProperties(prev => 
-      prev.map(prop => prop.id === id ? { ...prop, status } : prop)
-    );
+  const updatePropertyStatus = async (id: string, status: Property['status']) => {
+    try {
+      await propertyService.updatePropertyStatus(id, status);
+      setProperties(prev =>
+        prev.map(prop => prop.id === id ? { ...prop, status } : prop)
+      );
+    } catch (err) {
+      setError('Failed to update property status');
+      throw err;
+    }
   };
 
   const getProperty = (id: string) => {
     return properties.find(prop => prop.id === id);
+  };
+
+  const uploadImage = async (file: File) => {
+    return await propertyService.uploadImage(file);
   };
 
   return (
@@ -68,10 +114,14 @@ export function PropertyProvider({ children }: { children: ReactNode }) {
       properties,
       filteredProperties,
       filters,
+      loading,
+      error,
       updateFilters,
       addProperty,
       updatePropertyStatus,
-      getProperty
+      getProperty,
+      refreshProperties: fetchProperties,
+      uploadImage
     }}>
       {children}
     </PropertyContext.Provider>

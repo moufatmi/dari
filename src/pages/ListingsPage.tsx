@@ -3,11 +3,26 @@ import { PropertyCard } from '../components/UI/PropertyCard';
 import { FilterSidebar } from '../components/UI/FilterSidebar';
 import { useProperties } from '../context/PropertyContext';
 import { SlidersHorizontal, Grid, List } from 'lucide-react';
+import { PropertyCardSkeleton } from '../components/UI/Skeleton';
 
 export function ListingsPage() {
-  const { filteredProperties } = useProperties();
+  const { filteredProperties, loading } = useProperties();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 pt-20 pb-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {[...Array(6)].map((_, i) => (
+              <PropertyCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -26,7 +41,7 @@ export function ListingsPage() {
           {/* Filters Sidebar - Desktop */}
           <div className="hidden lg:block w-80 flex-shrink-0">
             <div className="bg-white rounded-lg shadow-md p-6 sticky top-8">
-              <FilterSidebar isOpen={true} onClose={() => {}} />
+              <FilterSidebar isOpen={true} onClose={() => { }} />
             </div>
           </div>
 
@@ -47,21 +62,19 @@ export function ListingsPage() {
               <div className="flex items-center space-x-2 bg-white border border-gray-300 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('grid')}
-                  className={`p-2 rounded transition-colors ${
-                    viewMode === 'grid' 
-                      ? 'bg-amber-600 text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  className={`p-2 rounded transition-colors ${viewMode === 'grid'
+                    ? 'bg-amber-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                    }`}
                 >
                   <Grid className="h-4 w-4" />
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
-                  className={`p-2 rounded transition-colors ${
-                    viewMode === 'list' 
-                      ? 'bg-amber-600 text-white' 
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  className={`p-2 rounded transition-colors ${viewMode === 'list'
+                    ? 'bg-amber-600 text-white'
+                    : 'text-gray-600 hover:bg-gray-100'
+                    }`}
                 >
                   <List className="h-4 w-4" />
                 </button>
@@ -71,7 +84,7 @@ export function ListingsPage() {
             {/* Properties Grid/List */}
             {filteredProperties.length > 0 ? (
               <div className={
-                viewMode === 'grid' 
+                viewMode === 'grid'
                   ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6'
                   : 'space-y-6'
               }>
@@ -98,9 +111,9 @@ export function ListingsPage() {
         </div>
 
         {/* Mobile Filter Sidebar */}
-        <FilterSidebar 
-          isOpen={isFilterOpen} 
-          onClose={() => setIsFilterOpen(false)} 
+        <FilterSidebar
+          isOpen={isFilterOpen}
+          onClose={() => setIsFilterOpen(false)}
         />
       </div>
     </div>

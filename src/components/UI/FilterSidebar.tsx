@@ -21,7 +21,7 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
     <div className="fixed inset-0 z-50 lg:relative lg:inset-auto">
       {/* Overlay */}
       <div className="absolute inset-0 bg-black bg-opacity-50 lg:hidden" onClick={onClose} />
-      
+
       {/* Sidebar */}
       <div className="absolute right-0 top-0 h-full w-80 bg-white shadow-xl lg:relative lg:w-full lg:shadow-none">
         <div className="p-6">
@@ -153,6 +153,32 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
               />
             </div>
 
+            {/* Amenities */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Commodités
+              </label>
+              <div className="space-y-2">
+                {['Climatisation', 'Parking', 'Jardin', 'Meublé', 'Piscine', 'Ascenseur'].map((amenity) => (
+                  <label key={amenity} className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={filters.amenities?.includes(amenity)}
+                      onChange={(e) => {
+                        const current = filters.amenities || [];
+                        const newAmenities = e.target.checked
+                          ? [...current, amenity]
+                          : current.filter(a => a !== amenity);
+                        updateFilters({ amenities: newAmenities });
+                      }}
+                      className="rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    />
+                    <span className="text-sm text-gray-700">{amenity}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
             {/* Reset Filters */}
             <button
               onClick={() => updateFilters({
@@ -162,7 +188,8 @@ export function FilterSidebar({ isOpen, onClose }: FilterSidebarProps) {
                 type: 'all',
                 propertyType: '',
                 minRooms: 0,
-                minSurface: 0
+                minSurface: 0,
+                amenities: []
               })}
               className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 py-2 px-4 rounded-md transition-colors"
             >

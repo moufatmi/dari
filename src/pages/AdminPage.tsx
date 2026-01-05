@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import { useProperties } from '../context/PropertyContext';
 import { Property } from '../types/Property';
-import { 
+import {
   Eye, Check, X, Clock, MapPin, Bed, Bath, Square,
-  Search, Filter, ChevronDown 
+  Search, Filter, ChevronDown
 } from 'lucide-react';
 
 export function AdminPage() {
-  const { properties, updatePropertyStatus } = useProperties();
+  const { properties, updatePropertyStatus, loading } = useProperties();
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-4 border-amber-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('fr-MA', {
@@ -41,8 +49,8 @@ export function AdminPage() {
   const filteredProperties = properties.filter(property => {
     const matchesStatus = statusFilter === 'all' || property.status === statusFilter;
     const matchesSearch = property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         property.neighborhood.toLowerCase().includes(searchTerm.toLowerCase());
+      property.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      property.neighborhood.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 

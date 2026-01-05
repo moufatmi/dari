@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProperties } from '../context/PropertyContext';
-import { Upload, MapPin, Camera, Phone, Mail } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { moroccanCities } from '../data/mockProperties';
+import { ImageDropzone, ImagePreview } from '../components/Upload/ImageDropzone';
 
 export function SubmitPropertyPage() {
   const navigate = useNavigate();
-  const { addProperty } = useProperties();
-  
+  const { addProperty, uploadImage } = useProperties();
+
   const [formData, setFormData] = useState({
     title: '',
     titleAr: '',
@@ -39,11 +40,12 @@ export function SubmitPropertyPage() {
     'Vue mer', 'Meublé', 'Internet', 'Architecture traditionnelle', 'Patio'
   ]);
 
-  const [imageUrls, setImageUrls] = useState<string[]>(['']);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    
+
     if (name.startsWith('contact.')) {
       const contactField = name.split('.')[1];
       setFormData(prev => ({
@@ -70,49 +72,73 @@ export function SubmitPropertyPage() {
     }));
   };
 
-  const handleImageUrlChange = (index: number, url: string) => {
-    const newUrls = [...imageUrls];
-    newUrls[index] = url;
-    setImageUrls(newUrls);
+  const handleFilesSelected = (files: File[]) => {
+    setSelectedFiles(prev => [...prev, ...files]);
+    // Create preview URLs for the immediate UI
+    const newUrls = files.map(file => URL.createObjectURL(file));
+    setImageUrls(prev => [...prev, ...newUrls]);
   };
 
-  const addImageUrl = () => {
-    setImageUrls([...imageUrls, '']);
+  const removeImage = (index: number) => {
+    setImageUrls(prev => prev.filter((_, i) => i !== index));
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const removeImageUrl = (index: number) => {
-    if (imageUrls.length > 1) {
-      setImageUrls(imageUrls.filter((_, i) => i !== index));
-    }
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const validImageUrls = imageUrls.filter(url => url.trim() !== '');
-    
-    if (validImageUrls.length === 0) {
+
+    if (selectedFiles.length === 0) {
       alert('Veuillez ajouter au moins une image.');
       return;
     }
 
-    const propertyData = {
-      ...formData,
-      price: parseFloat(formData.price),
-      surface: parseInt(formData.surface),
-      rooms: parseInt(formData.rooms),
-      bathrooms: parseInt(formData.bathrooms),
-      coordinates: {
-        lat: parseFloat(formData.coordinates.lat) || 33.5731,
-        lng: parseFloat(formData.coordinates.lng) || -7.5898
-      },
-      images: validImageUrls,
-      currency: 'MAD' as const
-    };
+    try {
+      setIsSubmitting(true);
+      setUploadProgress('Téléchargement des images...');
 
-    addProperty(propertyData);
-    alert('Votre propriété a été soumise avec succès ! Elle sera examinée avant publication.');
-    navigate('/admin');
+      // Upload images first
+      const uploadedUrls: string[] = [];
+      for (const file of selectedFiles) {
+        try {
+          const url = await uploadImage(file);
+          uploadedUrls.push(url);
+        } catch (uploadErr) {
+          console.error('Failed to upload image', file.name, uploadErr);
+          // Continue with successful uploads or fail hard? 
+          // Failing hard is safer for data integrity
+          throw new Error(`Échec du téléchargement de l'image: ${file.name}`);
+        }
+      }
+
+      setUploadProgress('Création de la propriété...');
+
+      const propertyData = {
+        ...formData,
+        price: parseFloat(formData.price),
+        surface: parseInt(formData.surface),
+        rooms: parseInt(formData.rooms),
+        bathrooms: parseInt(formData.bathrooms),
+        coordinates: {
+          lat: parseFloat(formData.coordinates.lat) || 33.5731,
+          lng: parseFloat(formData.coordinates.lng) || -7.5898
+        },
+        images: uploadedUrls,
+        currency: 'MAD' as const
+      };
+
+      await addProperty(propertyData);
+      alert('Votre propriété a été soumise avec succès ! Elle sera examinée avant publication.');
+      navigate('/admin');
+    } catch (error: any) {
+      console.error('Error submitting property:', error);
+      alert(`Une erreur est survenue: ${error.message || 'Erreur inconnue'}`);
+    } finally {
+      setIsSubmitting(false);
+      setUploadProgress('');
+    }
   };
 
   return (
@@ -132,7 +158,7 @@ export function SubmitPropertyPage() {
             {/* Basic Information */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Informations Générales</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -148,7 +174,7 @@ export function SubmitPropertyPage() {
                     placeholder="Ex: Appartement moderne à Casablanca"
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     العنوان بالعربية
@@ -303,7 +329,7 @@ export function SubmitPropertyPage() {
             {/* Description */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Description</h2>
-              
+
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -340,7 +366,7 @@ export function SubmitPropertyPage() {
             {/* Features */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Équipements et Commodités</h2>
-              
+
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {availableFeatures.map((feature) => (
                   <label key={feature} className="flex items-center space-x-2 cursor-pointer">
@@ -359,42 +385,23 @@ export function SubmitPropertyPage() {
             {/* Images */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Photos</h2>
-              
+
               <div className="space-y-4">
-                {imageUrls.map((url, index) => (
-                  <div key={index} className="flex items-center space-x-3">
-                    <div className="flex-1">
-                      <input
-                        type="url"
-                        value={url}
-                        onChange={(e) => handleImageUrlChange(index, e.target.value)}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                        placeholder="https://images.pexels.com/photos/..."
-                      />
-                    </div>
-                    {imageUrls.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeImageUrl(index)}
-                        className="px-3 py-2 text-red-600 hover:bg-red-50 rounded"
-                      >
-                        Supprimer
-                      </button>
-                    )}
-                  </div>
-                ))}
-                
-                <button
-                  type="button"
-                  onClick={addImageUrl}
-                  className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <Camera className="h-4 w-4" />
-                  <span>Ajouter une photo</span>
-                </button>
-                
-                <p className="text-sm text-gray-500">
-                  Utilisez des URLs d'images valides (ex: Pexels, Unsplash). Au moins une photo est requise.
+                <ImageDropzone onImagesSelected={handleFilesSelected} />
+
+                <ImagePreview
+                  images={selectedFiles}
+                  onRemove={removeImage}
+                />
+
+                {imageUrls.length === 0 && (
+                  <p className="text-sm text-red-500 mt-2">
+                    Au moins une photo est requise.
+                  </p>
+                )}
+
+                <p className="text-sm text-gray-500 mt-2">
+                  Formats acceptés: JPG, PNG, WEBP. Max 5MB par fichier.
                 </p>
               </div>
             </div>
@@ -402,7 +409,7 @@ export function SubmitPropertyPage() {
             {/* Contact Information */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Informations de Contact</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -453,7 +460,7 @@ export function SubmitPropertyPage() {
             {/* Location Coordinates */}
             <div className="border-b border-gray-200 pb-8">
               <h2 className="text-xl font-semibold text-gray-900 mb-6">Coordonnées GPS (Optionnel)</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -501,10 +508,20 @@ export function SubmitPropertyPage() {
               </button>
               <button
                 type="submit"
-                className="px-8 py-3 bg-amber-600 hover:bg-amber-700 text-white rounded-lg transition-colors font-medium flex items-center space-x-2"
+                disabled={isSubmitting}
+                className="px-8 py-3 bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white rounded-lg transition-colors font-medium flex items-center space-x-2"
               >
-                <Upload className="h-4 w-4" />
-                <span>Publier l'annonce</span>
+                {isSubmitting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                    <span>{uploadProgress || 'Publication...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4" />
+                    <span>Publier l'annonce</span>
+                  </>
+                )}
               </button>
             </div>
           </form>

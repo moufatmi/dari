@@ -36,4 +36,5 @@ export interface FilterOptions {
   propertyType: string;
   minRooms: number;
   minSurface: number;
+  amenities: string[];
 }

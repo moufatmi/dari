@@ -13,6 +13,7 @@
     "update": "git add . && git commit -m 'update' && git push && npm run build && npm run deploy"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.89.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.344.0",
     "react": "^18.3.1",
